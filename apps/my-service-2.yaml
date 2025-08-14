@@ -1,0 +1,74 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: my-service-2
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  ref:
+    branch: main
+  secretRef:
+    name: flux-system
+  url: https://github.com/spotify-portal-public-demo/my-service-2
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: my-service-2
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  path: ./kubernetes
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: my-service-2
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: my-service-2
+  namespace: flux-system
+spec:
+  image: ghcr.io/spotify-portal-public-demo/my-service-2
+  interval: 5m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: my-service-2
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: my-service-2
+  filterTags:
+    pattern: "^main-[a-fA-F0-9]+-(?P<ts>.*)"
+    extract: "$ts"
+  policy:
+    numerical:
+      order: asc
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: my-service-2
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: my-service-2
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxcdbot@users.noreply.github.com
+        name: fluxcdbot
+      messageTemplate: "[skip ci] {{range .Changed.Changes}}{{print .OldValue}} -> {{println .NewValue}}{{end}}"
+    push:
+      branch: main
+  update:
+    path: ./kubernetes
+    strategy: Setters
